@@ -1,0 +1,680 @@
+-- Dorito's Script Gallery | UI wrapper
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+
+-- ========== ORIGINAL SCRIPT (wrapped in a function) ==========
+local function runScript()
+    loadstring(game:HttpGet("https://rawscripts.net/raw/UP-Just-a-baseplate.-Reanimate-script-V4-limb-114114"))()
+    wait(2)
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/franciscomilguel1802-ui/Devesto-v1/refs/heads/main/dihvesto"))()
+    wait(2)
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    _G.loop = true
+    local Align = function(Part0, Part1, Mesh)
+        local Aligns = {
+            AlignOrientation = Instance.new("AlignOrientation", Part0),
+            AlignPosition = Instance.new("AlignPosition", Part0)
+        }
+        local Attachments = {
+            Attach0 = Instance.new("Attachment", Part0),
+            Attach1 = Instance.new("Attachment", Part1)
+        }
+        local m = Part0:FindFirstChildOfClass('SpecialMesh')
+        if Mesh and m then m:Destroy() end
+        Part0:BreakJoints()
+        Aligns.AlignOrientation.Attachment0 = Attachments.Attach0
+        Aligns.AlignOrientation.Attachment1 = Attachments.Attach1
+        Aligns.AlignOrientation.Responsiveness = math.huge
+        Aligns.AlignOrientation.RigidityEnabled = true
+        Aligns.AlignPosition.Attachment0 = Attachments.Attach0
+        Aligns.AlignPosition.Attachment1 = Attachments.Attach1
+        Aligns.AlignPosition.Responsiveness = math.huge
+        Aligns.AlignPosition.RigidityEnabled = true
+        Aligns.AlignPosition.MaxForce = 999999999
+        spawn(function()
+            local angleX, angleY, angleZ = 0, 0, 0
+            local speedX, speedY, speedZ = math.random(-40, 40), math.random(-40, 40), math.random(-40, 40)
+            local lastTime = tick()
+            local timeSinceChange = 0
+            local changeInterval = 0.5 + math.random() * 2.5
+            while _G.loop do
+                local currentTime = tick()
+                local dt = currentTime - lastTime
+                lastTime = currentTime
+                angleX = angleX + math.rad(speedX * dt)
+                angleY = angleY + math.rad(speedY * dt)
+                angleZ = angleZ + math.rad(speedZ * dt)
+                timeSinceChange = timeSinceChange + dt
+                if timeSinceChange >= changeInterval then
+                    speedX = math.random(-40, 40)
+                    speedY = math.random(-40, 40)
+                    speedZ = math.random(-40, 40)
+                    changeInterval = 0.5 + math.random() * 2.5
+                    timeSinceChange = 0
+                end
+                local mag = (Part0.Position - (Part1.CFrame * Attachments.Attach0.CFrame:Inverse()).Position).Magnitude
+                if mag >= 5 then
+                    Part0.CFrame = Part1.CFrame * Attachments.Attach0.CFrame:Inverse()
+                end
+                local relative_cf = CFrame.new(0, -1.4, 0) * CFrame.Angles(angleX, angleY, angleZ)
+                Attachments.Attach0.CFrame = relative_cf:Inverse()
+                Part0.Velocity = Vector3.new(0, 35, 0)
+                game:GetService("RunService").Heartbeat:Wait()
+            end
+        end)
+        return {Attachments.Attach0, Attachments, Aligns}
+    end
+    local hat = Align(char['Accessory (MeshPartAccessory)'].Handle, char['Right Arm'], false)
+    local cf = char['Right Arm'].CFrame * CFrame.new(0, -1.4, 0) * CFrame.Angles(math.rad(0), math.rad(0), 0)
+    hat[1].CFrame = cf:Inverse() * char['Right Arm'].CFrame
+end
+-- ==================================================================
+
+local function sendChat(msg)
+    local TCS = game:GetService("TextChatService")
+    if TCS.ChatVersion == Enum.ChatVersion.TextChatService then
+        local ch = TCS:FindFirstChild("TextChannels")
+        ch = ch and ch:FindFirstChild("RBXGeneral")
+        if ch then ch:SendAsync(msg) return end
+    end
+    local ev = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+    if ev and ev:FindFirstChild("SayMessageRequest") then
+        ev.SayMessageRequest:FireServer(msg, "All")
+    end
+end
+
+local parent = (gethui and gethui()) or game:GetService("CoreGui")
+pcall(function()
+    local old = parent:FindFirstChild("DoritoDevestoUI")
+    if old then old:Destroy() end
+end)
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "DoritoDevestoUI"
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local ok = pcall(function() gui.Parent = parent end)
+if not ok then gui.Parent = player:WaitForChild("PlayerGui") end
+
+local THEME = {
+    bg        = Color3.fromRGB(14, 14, 18),
+    header    = Color3.fromRGB(22, 22, 30),
+    content   = Color3.fromRGB(16, 16, 22),
+    card      = Color3.fromRGB(26, 26, 36),
+    cardHover = Color3.fromRGB(34, 34, 46),
+    border    = Color3.fromRGB(40, 40, 55),
+    text      = Color3.fromRGB(230, 230, 240),
+    textDim   = Color3.fromRGB(140, 140, 160),
+    textFaint = Color3.fromRGB(90, 90, 110),
+    green     = Color3.fromRGB(60, 180, 110),
+    greenHov  = Color3.fromRGB(80, 210, 135),
+    red       = Color3.fromRGB(190, 65, 65),
+    redHov    = Color3.fromRGB(215, 85, 85),
+    closeHov  = Color3.fromRGB(230, 70, 70),
+}
+
+local function corner(obj, r)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r or 8)
+    c.Parent = obj
+end
+
+local rainbowState = { hue = 0 }
+local rainbowListeners = {}
+local function onRainbow(cb) table.insert(rainbowListeners, cb) end
+local function getRainbowColor(offset)
+    offset = offset or 0
+    return Color3.fromHSV((rainbowState.hue + offset) % 1, 0.85, 1)
+end
+task.spawn(function()
+    while gui.Parent do
+        rainbowState.hue = (rainbowState.hue + 0.003) % 1
+        for _, cb in ipairs(rainbowListeners) do pcall(cb, rainbowState.hue) end
+        task.wait(0.03)
+    end
+end)
+
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0, 500, 0, 340)
+main.Position = UDim2.new(0.5, -250, 0.5, -170)
+main.BackgroundColor3 = THEME.bg
+main.BorderSizePixel = 0
+main.Active = true
+main.ClipsDescendants = true
+main.Parent = gui
+corner(main, 12)
+
+local glowStroke = Instance.new("UIStroke")
+glowStroke.Color = getRainbowColor()
+glowStroke.Thickness = 2
+glowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+glowStroke.Parent = main
+onRainbow(function(h) glowStroke.Color = Color3.fromHSV(h, 0.9, 1) end)
+
+local glowFrame = Instance.new("Frame")
+glowFrame.Size = UDim2.new(0, 516, 0, 356)
+glowFrame.Position = UDim2.new(0.5, -258, 0.5, -178)
+glowFrame.BackgroundColor3 = getRainbowColor()
+glowFrame.BackgroundTransparency = 0.82
+glowFrame.BorderSizePixel = 0
+glowFrame.ZIndex = 0
+glowFrame.Parent = gui
+corner(glowFrame, 16)
+onRainbow(function(h) glowFrame.BackgroundColor3 = Color3.fromHSV(h, 0.9, 1) end)
+
+local glowFrameStroke = Instance.new("UIStroke")
+glowFrameStroke.Color = getRainbowColor()
+glowFrameStroke.Thickness = 2
+glowFrameStroke.Transparency = 0.5
+glowFrameStroke.Parent = glowFrame
+
+local bgGrad = Instance.new("UIGradient")
+bgGrad.Color = ColorSequence.new(Color3.fromRGB(20, 20, 28), Color3.fromRGB(10, 10, 14))
+bgGrad.Rotation = 135
+bgGrad.Parent = main
+
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1, 0, 0, 48)
+header.BackgroundColor3 = THEME.header
+header.BorderSizePixel = 0
+header.Parent = main
+
+local headerLine = Instance.new("Frame")
+headerLine.Size = UDim2.new(1, 0, 0, 1)
+headerLine.Position = UDim2.new(0, 0, 1, 0)
+headerLine.BackgroundColor3 = getRainbowColor()
+headerLine.BorderSizePixel = 0
+headerLine.Parent = header
+onRainbow(function(h) headerLine.BackgroundColor3 = Color3.fromHSV(h, 0.9, 1) end)
+
+local logo = Instance.new("Frame")
+logo.Size = UDim2.new(0, 28, 0, 28)
+logo.Position = UDim2.new(0, 16, 0.5, -14)
+logo.BackgroundColor3 = getRainbowColor()
+logo.BorderSizePixel = 0
+logo.Parent = header
+corner(logo, 8)
+onRainbow(function(h) logo.BackgroundColor3 = Color3.fromHSV(h, 0.85, 1) end)
+
+local logoText = Instance.new("TextLabel")
+logoText.Size = UDim2.new(1, 0, 1, 0)
+logoText.BackgroundTransparency = 1
+logoText.Text = "D"
+logoText.TextColor3 = Color3.fromRGB(15, 15, 20)
+logoText.Font = Enum.Font.GothamBlack
+logoText.TextSize = 16
+logoText.Parent = logo
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -220, 0, 20)
+title.Position = UDim2.new(0, 54, 0, 7)
+title.BackgroundTransparency = 1
+title.Text = "Dorito's Script Gallery"
+title.TextColor3 = THEME.text
+title.Font = Enum.Font.GothamBold
+title.TextSize = 15
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = header
+
+local subtitle = Instance.new("TextLabel")
+subtitle.Size = UDim2.new(1, -220, 0, 14)
+subtitle.Position = UDim2.new(0, 54, 0, 26)
+subtitle.BackgroundTransparency = 1
+subtitle.Text = "reanimate • devesto • mods"
+subtitle.TextColor3 = THEME.textFaint
+subtitle.Font = Enum.Font.Gotham
+subtitle.TextSize = 11
+subtitle.TextXAlignment = Enum.TextXAlignment.Left
+subtitle.Parent = header
+
+local minimize = Instance.new("TextButton")
+minimize.Size = UDim2.new(0, 28, 0, 28)
+minimize.Position = UDim2.new(1, -70, 0.5, -14)
+minimize.BackgroundColor3 = THEME.card
+minimize.Text = "–"
+minimize.TextColor3 = THEME.text
+minimize.Font = Enum.Font.GothamBold
+minimize.TextSize = 16
+minimize.AutoButtonColor = false
+minimize.Parent = header
+corner(minimize, 6)
+minimize.MouseEnter:Connect(function() minimize.BackgroundColor3 = THEME.cardHover end)
+minimize.MouseLeave:Connect(function() minimize.BackgroundColor3 = THEME.card end)
+
+local close = Instance.new("TextButton")
+close.Size = UDim2.new(0, 28, 0, 28)
+close.Position = UDim2.new(1, -38, 0.5, -14)
+close.BackgroundColor3 = THEME.card
+close.Text = "×"
+close.TextColor3 = THEME.text
+close.Font = Enum.Font.GothamBold
+close.TextSize = 18
+close.AutoButtonColor = false
+close.Parent = header
+corner(close, 6)
+close.MouseEnter:Connect(function()
+    close.BackgroundColor3 = THEME.closeHov
+    close.TextColor3 = Color3.new(1,1,1)
+end)
+close.MouseLeave:Connect(function()
+    close.BackgroundColor3 = THEME.card
+    close.TextColor3 = THEME.text
+end)
+close.MouseButton1Click:Connect(function() gui:Destroy() end)
+
+local restore = Instance.new("TextButton")
+restore.Size = UDim2.new(0, 46, 0, 46)
+restore.Position = UDim2.new(0, 16, 0, 16)
+restore.BackgroundColor3 = THEME.bg
+restore.Text = "D"
+restore.TextColor3 = getRainbowColor()
+restore.Font = Enum.Font.GothamBlack
+restore.TextSize = 20
+restore.Visible = false
+restore.Active = true
+restore.AutoButtonColor = false
+restore.Parent = gui
+corner(restore, 12)
+
+local restoreStroke = Instance.new("UIStroke")
+restoreStroke.Color = getRainbowColor()
+restoreStroke.Thickness = 2
+restoreStroke.Parent = restore
+onRainbow(function(h)
+    restoreStroke.Color = Color3.fromHSV(h, 0.9, 1)
+    restore.TextColor3 = Color3.fromHSV(h, 0.85, 1)
+end)
+
+local function setMinimized(min)
+    if min then
+        glowFrame.Visible = false
+        restore.Position = UDim2.new(
+            main.Position.X.Scale, main.Position.X.Offset,
+            main.Position.Y.Scale, main.Position.Y.Offset
+        )
+    else
+        glowFrame.Visible = true
+        main.Position = UDim2.new(
+            restore.Position.X.Scale, restore.Position.X.Offset,
+            restore.Position.Y.Scale, restore.Position.Y.Offset
+        )
+        glowFrame.Position = UDim2.new(
+            restore.Position.X.Scale, restore.Position.X.Offset - 8,
+            restore.Position.Y.Scale, restore.Position.Y.Offset - 8
+        )
+    end
+    main.Visible = not min
+    restore.Visible = min
+end
+
+minimize.MouseButton1Click:Connect(function() setMinimized(true) end)
+
+local rPress, DRAG_THRESHOLD = nil, 6
+restore.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        rPress = { startPos = input.Position, iconStart = restore.Position, moved = false }
+    end
+end)
+UIS.InputChanged:Connect(function(input)
+    if not rPress then return end
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        local d = input.Position - rPress.startPos
+        if not rPress.moved and d.Magnitude > DRAG_THRESHOLD then rPress.moved = true end
+        if rPress.moved then
+            restore.Position = UDim2.new(
+                rPress.iconStart.X.Scale, rPress.iconStart.X.Offset + d.X,
+                rPress.iconStart.Y.Scale, rPress.iconStart.Y.Offset + d.Y
+            )
+        end
+    end
+end)
+UIS.InputEnded:Connect(function(input)
+    if not rPress then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local wasClick = not rPress.moved
+        rPress = nil
+        if wasClick then setMinimized(false) end
+    end
+end)
+
+local dragging, dragStart, startPos
+main.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local mp = UIS:GetMouseLocation()
+        if mp.Y - main.AbsolutePosition.Y <= 48 then
+            dragging = true
+            dragStart = Vector2.new(mp.X, mp.Y)
+            startPos = Vector2.new(main.Position.X.Offset, main.Position.Y.Offset)
+        end
+    end
+end)
+UIS.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local mp = UIS:GetMouseLocation()
+        local d = Vector2.new(mp.X, mp.Y) - dragStart
+        main.Position = UDim2.new(0, startPos.X + d.X, 0, startPos.Y + d.Y)
+        glowFrame.Position = UDim2.new(0, startPos.X + d.X - 8, 0, startPos.Y + d.Y - 8)
+    end
+end)
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+local tabBar = Instance.new("Frame")
+tabBar.Size = UDim2.new(1, -24, 0, 34)
+tabBar.Position = UDim2.new(0, 12, 0, 56)
+tabBar.BackgroundTransparency = 1
+tabBar.ClipsDescendants = true
+tabBar.Parent = main
+
+local tabScroll = Instance.new("ScrollingFrame")
+tabScroll.Size = UDim2.new(1, 0, 1, 0)
+tabScroll.BackgroundTransparency = 1
+tabScroll.BorderSizePixel = 0
+tabScroll.ScrollBarThickness = 0
+tabScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+tabScroll.AutomaticCanvasSize = Enum.AutomaticSize.X
+tabScroll.ScrollingDirection = Enum.ScrollingDirection.X
+tabScroll.Parent = tabBar
+
+local tabLayout = Instance.new("UIListLayout")
+tabLayout.FillDirection = Enum.FillDirection.Horizontal
+tabLayout.Padding = UDim.new(0, 6)
+tabLayout.Parent = tabScroll
+
+local tabIndicator = Instance.new("Frame")
+tabIndicator.Size = UDim2.new(0, 60, 0, 2)
+tabIndicator.Position = UDim2.new(0, 4, 1, -2)
+tabIndicator.BackgroundColor3 = getRainbowColor()
+tabIndicator.BorderSizePixel = 0
+tabIndicator.Parent = tabBar
+corner(tabIndicator, 1)
+onRainbow(function(h) tabIndicator.BackgroundColor3 = Color3.fromHSV(h, 0.9, 1) end)
+
+local pages, tabButtons = {}, {}
+
+local function makePage()
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1, -24, 1, -106)
+    f.Position = UDim2.new(0, 12, 0, 98)
+    f.BackgroundTransparency = 1
+    f.Visible = false
+    f.Parent = main
+    return f
+end
+
+local function selectTab(name)
+    for n, page in pairs(pages) do
+        page.Visible = (n == name)
+        tabButtons[n].TextColor3 = (n == name) and THEME.text or THEME.textDim
+        tabButtons[n].BackgroundColor3 = (n == name) and THEME.cardHover or Color3.new(1,1,1)
+        tabButtons[n].BackgroundTransparency = (n == name) and 0 or 1
+    end
+    local btn = tabButtons[name]
+    if btn and tabIndicator then
+        tabIndicator.Size = UDim2.new(0, btn.AbsoluteSize.X - 8, 0, 2)
+        tabIndicator.Position = UDim2.new(0, btn.AbsolutePosition.X - tabBar.AbsolutePosition.X + 4, 1, -2)
+    end
+end
+
+local function makeTab(name)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, 84, 1, -2)
+    b.BackgroundColor3 = Color3.new(1,1,1)
+    b.BackgroundTransparency = 1
+    b.Text = name
+    b.TextColor3 = THEME.textDim
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 13
+    b.AutoButtonColor = false
+    b.Parent = tabScroll
+    corner(b, 6)
+    tabButtons[name] = b
+    pages[name] = makePage()
+    b.MouseButton1Click:Connect(function() selectTab(name) end)
+    return pages[name]
+end
+
+-- ========== SCRIPTS TAB ==========
+local scriptsPage = makeTab("Scripts")
+
+local scriptScroll = Instance.new("ScrollingFrame")
+scriptScroll.Size = UDim2.new(1, 0, 1, 0)
+scriptScroll.BackgroundTransparency = 1
+scriptScroll.BorderSizePixel = 0
+scriptScroll.ScrollBarThickness = 3
+scriptScroll.ScrollBarImageColor3 = getRainbowColor()
+scriptScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+scriptScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scriptScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+scriptScroll.Parent = scriptsPage
+onRainbow(function(h) scriptScroll.ScrollBarImageColor3 = Color3.fromHSV(h, 0.85, 1) end)
+
+local scriptList = Instance.new("UIListLayout")
+scriptList.FillDirection = Enum.FillDirection.Vertical
+scriptList.Padding = UDim.new(0, 6)
+scriptList.Parent = scriptScroll
+
+
+local scriptDefs = {
+    { name = "Green baseplate reanimate", url = "https://rawscripts.net/raw/Universal-Script-Green-Baseplate-Reanimate-204629" },
+    { name = "uh reanim", url = "https://raw.githubusercontent.com/testing734/UhhhhhhModded/refs/heads/main/uhhhhhh%20awes%20fork" },
+    { name = "Neptunian v7 removed trail", url = "https://raw.githubusercontent.com/michaedascripter-a11y/My-Script-Modder/refs/heads/main/MICHAEL%20MODS%20NEPTUNIAN%20V6%2020%25%20COOL%2020%25%20FUN%2025%25%20AURA" },
+    { name = "Neptunian v by michael", url = "https://raw.githubusercontent.com/michaedascripter-a11y/My-Script-Modder/refs/heads/main/NEPTUNIAN%20V2%20Michael_JackSON" },
+    { name = "Fe devesto", url = "MAIN_TAB_SCRIPT" },
+    { name = "Fe jason", url = "https://raw.githubusercontent.com/Jskfhggjxu/My-Script/refs/heads/main/Fe%20Forsaken%20Jason%20-%20Limb%20Reanimation%20v2.lua" },
+    { name = "ravenger claws", url = "https://raw.githubusercontent.com/Jskfhggjxu/My-Script/refs/heads/main/Fe%20Revenge%20Claws%20v3.lua" },
+    { name = "hold hats", url = "https://pastebin.com/raw/EvqnRMN1" },
+    { name = "gelatek hub", url = "https://raw.githubusercontent.com/Gelatekussy/GelatekHub/main/Main.lua" },
+    { name = "lc Maddox", url = "https://raw.githubusercontent.com/Jskfhggjxu/My-Script/refs/heads/main/Maddox_LC.lua" },
+    { name = "Theo hub", url = "https://raw.githubusercontent.com/Jskfhggjxu/My-Script/refs/heads/main/Theo%20Hub.lua" },
+    { name = "ban hammer", url = "https://raw.githubusercontent.com/Jskfhggjxu/My-Script/refs/heads/main/ban_hammer.lua" },
+    { name = "Tool void by tory", url = "https://raw.githubusercontent.com/Jskfhggjxu/My-Script/refs/heads/main/ToolVoid(1).lua" },
+    { name = "Admin noli", url = "https://raw.githubusercontent.com/Jskfhggjxu/My-Script/refs/heads/main/Admin%20Noli%20-%20Limb%20Reanimation.lua" },
+    { name = "penrium h ub updated", url = "https://raw.githubusercontent.com/tguy37343-sys/Work/refs/heads/main/Work" },
+    { name = "penrium hub", url = "https://pastebin.com/raw/PdzVL7xu" },
+    { name = "xrz scripters hub", url = "https://pastebin.com/raw/4qK4Jvnf" },
+}
+for i, def in ipairs(scriptDefs) do
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -4, 0, 58)
+    row.BackgroundColor3 = THEME.card
+    row.BorderSizePixel = 0
+    row.Parent = scriptScroll
+    corner(row, 8)
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, -110, 0, 24)
+    nameLabel.Position = UDim2.new(0, 12, 0, 8)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = def.name
+    nameLabel.TextColor3 = THEME.text
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextSize = 13
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.Parent = row
+
+    local rowStatus = Instance.new("TextLabel")
+    rowStatus.Size = UDim2.new(1, -110, 0, 16)
+    rowStatus.Position = UDim2.new(0, 12, 0, 32)
+    rowStatus.BackgroundTransparency = 1
+    rowStatus.Text = "Idle"
+    rowStatus.TextColor3 = THEME.textFaint
+    rowStatus.Font = Enum.Font.Gotham
+    rowStatus.TextSize = 11
+    rowStatus.TextXAlignment = Enum.TextXAlignment.Left
+    rowStatus.Parent = row
+
+    local runBtn = Instance.new("TextButton")
+    runBtn.Size = UDim2.new(0, 82, 0, 34)
+    runBtn.Position = UDim2.new(1, -92, 0.5, -17)
+    runBtn.BackgroundColor3 = THEME.green
+    runBtn.Text = "Execute"
+    runBtn.TextColor3 = Color3.new(1,1,1)
+    runBtn.Font = Enum.Font.GothamBold
+    runBtn.TextSize = 12
+    runBtn.AutoButtonColor = false
+    runBtn.Parent = row
+    corner(runBtn, 6)
+    runBtn.MouseEnter:Connect(function()
+        if not runBtn:GetAttribute("running") then runBtn.BackgroundColor3 = THEME.greenHov end
+    end)
+    runBtn.MouseLeave:Connect(function()
+        if not runBtn:GetAttribute("running") then runBtn.BackgroundColor3 = THEME.green end
+    end)
+
+    local rowRunning = false
+    runBtn.MouseButton1Click:Connect(function()
+        if rowRunning then return end
+        rowRunning = true
+        runBtn:SetAttribute("running", true)
+        runBtn.BackgroundColor3 = THEME.cardHover
+        runBtn.Text = "Loading..."
+        rowStatus.Text = "Loading..."
+        rowStatus.TextColor3 = THEME.green
+        task.spawn(function()
+            local ok, err = pcall(function()
+                if def.url == "MAIN_TAB_SCRIPT" then
+                    runScript()
+                else
+                    loadstring(game:HttpGet(def.url))()
+                end
+            end)
+            if ok then
+                rowStatus.Text = "Executed"
+                rowStatus.TextColor3 = THEME.green
+            else
+                rowStatus.Text = "Error (see console)"
+                rowStatus.TextColor3 = THEME.red
+                warn("[" .. def.name .. "] " .. tostring(err))
+            end
+            runBtn.Text = "Execute"
+            runBtn.BackgroundColor3 = THEME.green
+            runBtn:SetAttribute("running", false)
+            rowRunning = false
+        end)
+    end)
+end
+
+-- ========== HATS TAB ==========
+local hatsPage = makeTab("Hats")
+
+-- preset hat commands (sent silently through the plain box)
+local presetHats = {
+    { label = "Plain box",             cmd = "-gh 82404150383568 108224319902592 100856932339214 417457461" },
+    { label = "Mr Pumpkin",            cmd = "-gh 80217253841135 72472240681660" },
+    { label = "Doritos",               cmd = "-gh 136894224774488" },
+    { label = "Brimstone",             cmd = "-gh 13616567120 139685156013577" },
+    { label = "Giant rig",             cmd = "-gh 132416515427938 118799338103138 80628080423002 101379144205559 121360936156823 106683380249 107852478332182 115869696014" },
+    { label = "Idk rig",               cmd = "-gh 88886554182275 120111604252410 128893482026011 90788603154080 87291559615126" },
+    { label = "Template rig",          cmd = "-gh 100320369966597 110520965950631 102097999252623 94942366877591 77093860933091" },
+    { label = "Blacks Rigs (advanced)", cmd = "-gh 138364679836274 131385506535381 85392395166623 106249329428811 129462518582032 136305820319911 76634557079002" },
+    { label = "Dummy rig",             cmd = "-gh 100320369966597 110520965950631 102097999252623 94942366877591 77093860933091" },
+    { label = "VHS Dummy",             cmd = "-gh 98099894849025" },
+    { label = "Fire Horns",            cmd = "-gh 74891470 1744060292 215718515" },
+    { label = "Mafia Rig",             cmd = "-gh 102719482733896 106712377003862 100061491528367 136816733921592 113611011564515 111538816372226" },
+    { label = "Mafioso",               cmd = "-gh 11748356 96232184207447 109748387751168 75414412826930" },
+    { label = "Black rigs",            cmd = "-gh 131385506535381 85392395166623 129462518582032 106249329428811 138364679836274" },
+}
+
+-- manual hat ID field
+local hatBox = Instance.new("TextBox")
+hatBox.Size = UDim2.new(1, -110, 0, 40)
+hatBox.Position = UDim2.new(0, 0, 0, 0)
+hatBox.BackgroundColor3 = THEME.card
+hatBox.Text = "89392828628286"
+hatBox.PlaceholderText = "Hat asset ID"
+hatBox.TextColor3 = THEME.text
+hatBox.PlaceholderColor3 = THEME.textFaint
+hatBox.ClearTextOnFocus = false
+hatBox.Font = Enum.Font.Gotham
+hatBox.TextSize = 13
+hatBox.TextXAlignment = Enum.TextXAlignment.Left
+hatBox.Parent = hatsPage
+corner(hatBox, 8)
+
+local getHat = Instance.new("TextButton")
+getHat.Size = UDim2.new(0, 100, 0, 40)
+getHat.Position = UDim2.new(1, -100, 0, 0)
+getHat.BackgroundColor3 = THEME.green
+getHat.Text = "Get Hat"
+getHat.TextColor3 = Color3.new(1,1,1)
+getHat.Font = Enum.Font.GothamBold
+getHat.TextSize = 14
+getHat.AutoButtonColor = false
+getHat.Parent = hatsPage
+corner(getHat, 8)
+getHat.MouseEnter:Connect(function() getHat.BackgroundColor3 = THEME.greenHov end)
+getHat.MouseLeave:Connect(function() getHat.BackgroundColor3 = THEME.green end)
+
+getHat.MouseButton1Click:Connect(function()
+    local id = hatBox.Text:gsub("%s", "")
+    if id ~= "" then
+        pcall(sendChat, "-gh " .. id)
+    end
+end)
+
+-- preset list
+local presetScroll = Instance.new("ScrollingFrame")
+presetScroll.Size = UDim2.new(1, 0, 1, -56)
+presetScroll.Position = UDim2.new(0, 0, 0, 52)
+presetScroll.BackgroundTransparency = 1
+presetScroll.BorderSizePixel = 0
+presetScroll.ScrollBarThickness = 3
+presetScroll.ScrollBarImageColor3 = getRainbowColor()
+presetScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+presetScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+presetScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+presetScroll.Parent = hatsPage
+onRainbow(function(h) presetScroll.ScrollBarImageColor3 = Color3.fromHSV(h, 0.85, 1) end)
+
+local presetList = Instance.new("UIListLayout")
+presetList.FillDirection = Enum.FillDirection.Vertical
+presetList.Padding = UDim.new(0, 6)
+presetList.Parent = presetScroll
+
+for _, h in ipairs(presetHats) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -4, 0, 34)
+    btn.BackgroundColor3 = THEME.card
+    btn.Text = h.label
+    btn.TextColor3 = THEME.text
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    btn.AutoButtonColor = false
+    btn.Parent = presetScroll
+    corner(btn, 6)
+
+    local pad = Instance.new("UIPadding")
+    pad.PaddingLeft = UDim.new(0, 10)
+    pad.Parent = btn
+
+    btn.MouseEnter:Connect(function() btn.BackgroundColor3 = THEME.cardHover end)
+    btn.MouseLeave:Connect(function() btn.BackgroundColor3 = THEME.card end)
+    btn.MouseButton1Click:Connect(function()
+        pcall(sendChat, h.cmd)
+    end)
+end
+
+-- ========== CREDITS TAB ==========
+local creditsPage = makeTab("Credits")
+
+local credits = Instance.new("TextLabel")
+credits.Size = UDim2.new(1, 0, 1, 0)
+credits.BackgroundTransparency = 1
+credits.Text = "Credits\n\nsprite"
+credits.TextColor3 = getRainbowColor()
+credits.Font = Enum.Font.GothamBold
+credits.TextSize = 20
+credits.TextXAlignment = Enum.TextXAlignment.Left
+credits.TextYAlignment = Enum.TextYAlignment.Top
+credits.Parent = creditsPage
+onRainbow(function(h) credits.TextColor3 = Color3.fromHSV(h, 0.85, 1) end)
+
+selectTab("Scripts")
